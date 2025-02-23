@@ -1,0 +1,27 @@
+batch_size: 256
+cuda: 0
+default_path: experiments/multisimul_study
+epoch: 50 # 150
+learning_rate: 0.001
+print_cycle: 20
+split: 0.3
+l1_lambda: 4.256
+l2_lambda: 0.342
+noise_0: 0.02
+size_0: 1000
+split_0:
+  0: 300
+  1: 300
+  2: 300
+noise_1: 0.02
+size_1: 1000
+split_1:
+  0: 300
+  1: 300
+  2: 300
+noise_2: 0.02
+size_2: 1000
+split_2:
+  0: 300
+  1: 300
+  2: 300

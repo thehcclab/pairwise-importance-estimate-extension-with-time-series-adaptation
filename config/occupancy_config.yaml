@@ -1,0 +1,10 @@
+batch_size: 1
+cuda: 0
+default_path: experiments/OccupancyDetection
+epoch: 60
+learning_rate: 0.0001 # 0.001
+print_cycle: 5
+split: 0.3
+seq_len: 64
+l1_lambda: 0.001 #0.632
+l2_lambda: 0.001 #0.372
