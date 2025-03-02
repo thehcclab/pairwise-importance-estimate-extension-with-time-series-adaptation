@@ -16,6 +16,8 @@
 - PIEE's Gradient based analysis (Grad-AUC, Grad-ROC, Grad-STD) with Element wise Multiplication adaptation and Hardmard Product adatptation.
 - [DeepLIFT](https://arxiv.org/abs/1704.02685)
 
+*Note: multiseries signifies the use of Element wise adaptation and multivar signifies the use of Hardmard Product adaptation.*
+
 Shield: [![CC BY-NC-ND 4.0][cc-by-nc-nd-shield]][cc-by-nc-nd]
 
 This work is licensed under a
