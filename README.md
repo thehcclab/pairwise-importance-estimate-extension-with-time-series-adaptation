@@ -6,7 +6,7 @@
 - Multivariate Simulated Dataset 0
 - Multivariate Simulated Dataset 1
 - [Occupancy](https://archive.ics.uci.edu/dataset/357/occupancy+detection)
-- [HHAR](#%20http://archive.ics.uci.edu/ml/datasets/heterogeneity+activity+recognition)
+- [HHAR](http://archive.ics.uci.edu/ml/datasets/heterogeneity+activity+recognition)
 
 ## Methods
 - Ablation study: Retraining with Singleton feature subsets & Retraining with Leave-One-Out feature subsets.
