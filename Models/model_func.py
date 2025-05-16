@@ -143,10 +143,6 @@ def Thresholded_train(model, dataloader, loss_func, device):
         outputs += [output.argmax(dim=1).cpu().detach().numpy()]
         y_real += [y.cpu().detach().numpy()]
 
-
-
-
-
 #         print(losses)
     if len(losses)==1:
         return losses[0], outputs[0], y_real[0]

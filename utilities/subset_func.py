@@ -363,45 +363,45 @@ def Grad_STD_with_multivar_grad(load_w, epoch, subset, X, x_shape=1,scaling=True
 
 
 
-from scikit_feature.skfeature.function.similarity_based import fisher_score
-def Fisher_Score(default_path, load_w, model, subset, X_shape, X, y):
+# from scikit_feature.skfeature.function.similarity_based import fisher_score
+# def Fisher_Score(default_path, load_w, model, subset, X_shape, X, y):
 
-        try:
-            idx= pickle.load(open(load_w, "rb"))
-        except FileNotFoundError:
-            score= fisher_score.fisher_score(X, y)
-    #        score= fisher_score.fisher_score(X_train, y_train)
-            idx= fisher_score.feature_ranking(score)
+#         try:
+#             idx= pickle.load(open(load_w, "rb"))
+#         except FileNotFoundError:
+#             score= fisher_score.fisher_score(X, y)
+#     #        score= fisher_score.fisher_score(X_train, y_train)
+#             idx= fisher_score.feature_ranking(score)
 
-            if not os.path.exists(default_path+model):
-                os.makedirs(default_path+model)
+#             if not os.path.exists(default_path+model):
+#                 os.makedirs(default_path+model)
 
-            pickle.dump(idx, open(load_w, "wb"))
+#             pickle.dump(idx, open(load_w, "wb"))
 
-    #     weights= np.zeros(X_train.shape[1])
+#     #     weights= np.zeros(X_train.shape[1])
 
-    #     selection= math.floor(len(weights)*0.01*int(args.subset) )
-    #     weights[ idx[:-selection] ]=1
+#     #     selection= math.floor(len(weights)*0.01*int(args.subset) )
+#     #     weights[ idx[:-selection] ]=1
 
-        weights= select_features(idx, X_shape, subset)
-        return weights
+#         weights= select_features(idx, X_shape, subset)
+#         return weights
 
-from scikit_feature.skfeature.function.statistical_based import f_score
-def FScore(default_path, load_w, model, subset, X_shape, X, y):
+# from scikit_feature.skfeature.function.statistical_based import f_score
+# def FScore(default_path, load_w, model, subset, X_shape, X, y):
 
-    try:
-        idx= pickle.load(open(load_w, "rb"))
-    except FileNotFoundError:
-        score= f_score.f_score(X, y)
-        idx= f_score.feature_ranking(score)
-        if not os.path.exists(default_path+model):
-            os.makedirs(default_path+model)
+#     try:
+#         idx= pickle.load(open(load_w, "rb"))
+#     except FileNotFoundError:
+#         score= f_score.f_score(X, y)
+#         idx= f_score.feature_ranking(score)
+#         if not os.path.exists(default_path+model):
+#             os.makedirs(default_path+model)
 
-        pickle.dump(idx, open(load_w, "wb"))
+#         pickle.dump(idx, open(load_w, "wb"))
 
-    weights= select_features(idx, X_shape, subset)
+#     weights= select_features(idx, X_shape, subset)
 
-    return weights
+#     return weights
 
 def Percentile_Subset(load_w, subset):
 
