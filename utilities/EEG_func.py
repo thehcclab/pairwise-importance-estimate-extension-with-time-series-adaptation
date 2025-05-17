@@ -5,6 +5,7 @@ import torch
 import os
 from tqdm import tqdm
 import Models.model_func as Model_Func
+from typing import List
 
 def calculate_accuracy(ys, predictions):
     
@@ -22,6 +23,43 @@ def calculate_accuracy(ys, predictions):
     balanced_acc= (c0_acc+c1_acc) /2
 
     return c0_acc, c1_acc, balanced_acc
+
+def eeg_DF_train(model, dataloader, loss_func, device):
+    model.train()
+
+    losses= []
+    outputs= []
+    y_real= []
+
+#     t=tqdm(dataloader, desc="Batch")
+    t=dataloader
+
+    for x, y in t:
+        model.optimiser.zero_grad()
+
+        x= x.to(device, dtype=torch.float)
+        x= x.unsqueeze(1)
+#         print("train", x)
+        y= y.to(device, dtype=torch.long)
+
+        output= model(x)
+        loss= loss_func(output, y)
+        l1_loss= model.l1_lambda * model.compute_l1_loss() # concatenated tensors
+        l2_loss= model.l2_lambda * model.compute_l2_loss()
+
+        loss += l1_loss
+        loss += l2_loss
+
+        loss.backward()
+        model.optimiser.step()
+
+        losses += [loss.item()]
+        outputs += [output.argmax(dim=1).cpu().detach().numpy()]
+        y_real += [y.cpu().detach().numpy()]
+    if len(losses)==1:
+        return losses[0], outputs[0], y_real[0]
+    else:
+        return np.array(losses).mean(), np.concatenate(outputs), np.concatenate(y_real)
 
 def eeg_train(model, dataloader, loss_func, device):
     model.train()
@@ -154,7 +192,7 @@ class EEGNet_Wrapper(torch.nn.Module):
         super().__init__()
 
         assert isinstance(device, torch.device)
-        assert isinstance(eegnet, torcheeg.models.EEGNet)
+        assert isinstance(eegnet, torch.nn.Module) # torcheeg.models.EEGNet
         self.device= device
         self.eegnet= eegnet
         self.t_dicts=[]
@@ -213,4 +251,127 @@ class EEGNet_Wrapper(torch.nn.Module):
                 print("////////")
 
             self.epoch += 1
+            
+class EEGNet_IE_Wrapper(EEGNet_Wrapper):
+    """Simultaneous method"""
+    def __init__(self, device:torch.device, eegnet:torcheeg.models.EEGNet, input_dim:List[int]):
+        assert isinstance(device, torch.device), "device is not a torch.device"
+        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        super().__init__(device, eegnet)
+
+        assert len(input_dim)==2, "Expecting a list with length 2"
+        for i in input_dim:
+            assert isinstance(i, int), "Expected i to be an int"
+
+        self.IE_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True, device=device)
+        self.IE_weights= torch.nn.Parameter(torch.nn.init.ones_(self.IE_weights))
+
+    def set_IE_weights(self, ie_w):
+        self.IE_weights= torch.nn.Parameter(ie_w)
+
+    def return_IE_weights(self):
+
+        return self.IE_weights.detach().cpu().numpy()
     
+    def return_IE_gradient(self):
+        return self.IE_weights.grad
+
+    def store_IE_gradient(self):
+        if self.return_IE_gradient()!=None:
+            self.IE_grad.append( self.return_IE_gradient().detach().cpu().numpy()  )
+
+    def IE_grad_setting(self, boolean):
+        self.IE_weights.requires_grad_(boolean)
+        self.IE_weights.grad= None
+
+    def forward(self, x):
+#         print("IE weights", self.return_layer_weights())
+        new_input= x * self.IE_weights
+
+        return self.eegnet(new_input)
+
+
+    
+class EEGNet_DF_Wrapper(EEGNet_Wrapper):
+    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet,
+                 input_dim: List[int], l1_lambda=1.0, l2_lambda=0.1):
+
+        assert isinstance(device, torch.device), "device is not a torch.device"
+        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        super().__init__(device, eegnet)
+        
+        assert isinstance(model, torch.nn.Module), "Expecting torch.nn.Module for the model parameter"
+        assert isinstance(l1_lambda, float), "Expecting float for l1_lambda"
+        assert isinstance(l2_lambda, float), "Expecting float for l2_lambda"
+        assert len(input_dim)==2, "Only accept multivariate data of 2 dimensions"
+
+        for i in input_dim:
+            assert isinstance(i, int), f"{i} is not an int"
+        
+        self.l1_lambda= 1.0
+        self.l2_lambda= 0.1
+        
+        self.DF_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True)
+        self.DF_weights= torch.nn.Parameter ( torch.nn.init.uniform_(self.DF_weights) )
+
+    def return_DF_weights(self):
+        return self.DF_weights.detach().cpu().numpy()
+
+    def compute_l1_loss(self):
+        return torch.abs(self.DF_weights).sum()
+
+    def compute_l2_loss(self):
+        return (self.DF_weights*self.DF_weights).sum()
+
+    def forward(self,x):
+        new_input= x * self.DF_weights
+        output= self.eegnet(new_input)
+        return output
+    
+class EEGNet_NeuralFS_Wrapper(EEGNet_Wrapper):
+    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet, input_dim: List[int], nonlinear_func: torch.nn.Module):
+        
+        assert isinstance(device, torch.device), "device is nto a torch.device"
+        assert isinstance(eegnet, torcheeg.models.EEGNet), "device is nto a torch.device"
+        super().__init__(device, eegnet)
+
+        assert isinstance(nonlinear_func, torch.nn.Module), "Expecting torch.nn.Module for the model parameter"
+        assert len(input_dim)==2, "Only accept multivariate data of 2 dimensions"
+
+        for i in input_dim:
+            assert isinstance(i, int), f"{i} is not an int"
+
+        self.nonlinear_func= nonlinear_func
+
+        self.pairwise_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True)
+        self.pairwise_weights=torch.nn.Parameter( torch.nn.init.uniform_(self.pairwise_weights) )
+
+    def return_pairwise_weights(self):
+        return self.pairwise_weights.detach().cpu().numpy()
+
+    def Thresholded_Linear(self, x, threshold=0.2):
+
+        return ( (x > threshold) | (x < -threshold) ) * x
+
+    def forward(self,x):
+#         print("original x", x.shape)
+        x= x.squeeze(1)
+#         print("x", x.shape)
+        nonlinear_output= self.nonlinear_func(x)
+
+#         print("nonlinear_output", nonlinear_output.shape)
+#         print("pairwise_weights", self.pairwise_weights.shape)
+
+        pairwise_connected_output= nonlinear_output * self.pairwise_weights
+
+#         print("pariwise_connected_output", pairwise_connected_output.shape)
+        
+        thresholded_pairwise_output= self.Thresholded_Linear(pairwise_connected_output)
+
+        selected_input= x * thresholded_pairwise_output
+        
+#         print("selected input",selected_input.shape)
+
+        output= self.eegnet(selected_input.squeeze(0).unsqueeze(1))
+
+        return output

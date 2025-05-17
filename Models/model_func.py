@@ -21,8 +21,6 @@ def DF_train(model, dataloader, loss_func, device):
         x = x.to(device, dtype=torch.float)
         y = y.to(device, dtype=torch.long)
 
-#         print("train")
-#         print(x)
         # forward pass
         output = model(x)
 

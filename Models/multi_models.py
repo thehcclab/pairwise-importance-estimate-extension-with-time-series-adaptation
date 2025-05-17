@@ -331,16 +331,21 @@ class Multivariate_NeuralFS(Multivariate_Model):
         return ( (x > threshold) | (x < -threshold) ) * x
 
     def forward(self,x):
-        decision_net_output= self.nonlinear_func(x)
+#         print(x.shape)
+        nonlinear_output= self.nonlinear_func(x)
 
-#         print("decision_net_output", decision_net_output.shape)
+#         print("nonlinear_output", nonlinear_output.shape)
 #         print("pairwise_weights", self.pairwise_weights.shape)
 
-        pairwise_connected_output= decision_net_output * self.pairwise_weights
+        pairwise_connected_output= nonlinear_output * self.pairwise_weights
 
+#         print("pariwise_connected_output", pairwise_connected_output.shape)
+        
         thresholded_pairwise_output= self.Thresholded_Linear(pairwise_connected_output)
 
         selected_input= x * thresholded_pairwise_output
+        
+#         print("selected input",selected_input.shape)
 
         output= self.decision_net(selected_input)
 
