@@ -6,6 +6,7 @@ import os
 from tqdm import tqdm
 import Models.model_func as Model_Func
 from typing import List
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
 
 def calculate_accuracy(ys, predictions):
     
@@ -23,6 +24,112 @@ def calculate_accuracy(ys, predictions):
     balanced_acc= (c0_acc+c1_acc) /2
 
     return c0_acc, c1_acc, balanced_acc
+
+def return_epoch_stat(grad_all, stat="sum"):
+    epochs= []
+
+    grad_all= np.nan_to_num(grad_all) # NaN conversion
+
+    if stat=="sum":
+        for epoch in grad_all:
+            epochs.append( epoch.sum(axis=0) )
+    elif stat=="std":
+        for epoch in grad_all:
+            epochs.append( epoch.std(axis=0) )
+    elif stat=="mean":
+            for epoch in grad_all:
+                epochs.append( epoch.mean(axis=0) )
+
+    return np.array(epochs)
+
+def Grad_AUC_with_multivar_grad(grads, epoch, X, x_shape=1,scaling=False):
+
+    channels=np.arange(X.shape[x_shape+1])
+
+    grad_all= np.array(grads).reshape(epoch,-1,X.shape[x_shape], X.shape[x_shape+1])
+    
+    if scaling:
+        scaler= MinMaxScaler()
+    
+        epoch= return_epoch_stat(grad_all, "sum")
+        dictionary={}
+        for idx, name in zip(range(len(channels)), channels):
+            dictionary[name]= np.trapz(abs(epoch[:, :, idx]), axis=0)
+            scaler.partial_fit(dictionary[name].reshape(-1,1))
+
+
+        for key in dictionary.keys():
+            dictionary[key]= scaler.transform(dictionary[key].reshape(-1,1)).reshape(-1)
+    else:
+        epoch= return_epoch_stat(grad_all, "sum")
+        dictionary={}
+        for idx, name in zip(range(len(channels)), channels):
+            dictionary[name]= np.trapz(abs(epoch[:, :, idx]), axis=0)
+
+
+    return dictionary
+
+def Grad_ROC_with_multivar_grad(grads, epoch, X, x_shape=1, scaling=False):
+
+    channels=np.arange(X.shape[x_shape+1])
+
+    grad_all= np.array(grads).reshape(epoch,-1,X.shape[x_shape], X.shape[x_shape+1])
+    
+    if scaling:
+        scaler= MinMaxScaler()
+    
+        epoch= return_epoch_stat(grad_all, "sum")
+        dictionary={}
+        for idx, name in zip(range(len(channels)), channels):
+            rolled= np.roll( epoch[:,:, idx], 1 )
+            rolled[0]=0.
+            diff= epoch[:,:, idx]-rolled
+            dictionary[channels[idx]]= np.trapz(abs(diff), axis=0)
+#             scaler= MinMaxScaler()
+#             dictionary[channels[idx]]=
+            scaler.partial_fit(dictionary[name].reshape(-1,1)) #.reshape(-1)
+
+
+        for key in dictionary.keys():
+            dictionary[key]= scaler.transform(dictionary[key].reshape(-1,1)).reshape(-1)
+    else:
+        epoch= return_epoch_stat(grad_all, "sum")
+        dictionary={}
+        for idx, name in zip(range(len(channels)), channels):
+            rolled= np.roll( epoch[:,:, idx], 1 )
+            rolled[0]=0.
+            diff= epoch[:,:, idx]-rolled
+            dictionary[channels[idx]]= np.trapz(abs(diff), axis=0)
+
+
+    return dictionary
+
+def Grad_STD_with_multivar_grad(grads, epoch, X, x_shape=1,scaling=False):
+
+    channels=np.arange(X.shape[x_shape+1])
+
+    grad_all= np.array(grads).reshape(epoch,-1,X.shape[x_shape], X.shape[x_shape+1])
+    
+    if scaling:
+        scaler= MinMaxScaler()
+    
+        epoch= return_epoch_stat(grad_all, "std")
+        dictionary={}
+        for idx, name in zip(range(len(channels)), channels):
+            dictionary[name]= np.trapz(abs(epoch[:, :, idx]), axis=0)
+            scaler.partial_fit(dictionary[name].reshape(-1,1))
+
+
+        for key in dictionary.keys():
+            dictionary[key]= scaler.transform(dictionary[key].reshape(-1,1)).reshape(-1)
+    else:
+        epoch= return_epoch_stat(grad_all, "std")
+        dictionary={}
+        for idx, name in zip(range(len(channels)), channels):
+            dictionary[name]= np.trapz(abs(epoch[:, :, idx]), axis=0)
+
+
+    return dictionary
 
 def eeg_DF_train(model, dataloader, loss_func, device):
     model.train()
