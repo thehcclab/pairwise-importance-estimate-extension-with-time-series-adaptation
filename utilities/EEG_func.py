@@ -42,6 +42,18 @@ def return_epoch_stat(grad_all, stat="sum"):
 
     return np.array(epochs)
 
+def Grad_AUC_with_grad(grads, epoch, X,x_shape=1):
+
+    channels=np.arange(X.shape[x_shape])
+    grad_all= np.array(grads).reshape(epoch, -1,X.shape[x_shape])
+
+    epoch_sum= return_epoch_stat(grad_all, stat="sum")
+    dictionary={}
+    for idx, name in zip(range(len(channels)), channels):
+        dictionary[name]= np.trapz(abs(epoch_sum[:,idx]))
+
+    return dictionary
+
 def Grad_AUC_with_multivar_grad(grads, epoch, X, x_shape=1,scaling=False):
 
     channels=np.arange(X.shape[x_shape+1])
@@ -66,6 +78,20 @@ def Grad_AUC_with_multivar_grad(grads, epoch, X, x_shape=1,scaling=False):
         for idx, name in zip(range(len(channels)), channels):
             dictionary[name]= np.trapz(abs(epoch[:, :, idx]), axis=0)
 
+
+    return dictionary
+
+def Grad_ROC_with_grad(grads, epoch, X, x_shape=1):
+    channels=np.arange(X.shape[x_shape])
+    grad_all= np.array(grads).reshape(epoch, -1,X.shape[x_shape])
+
+    epoch_sum= return_epoch_stat(grad_all, stat="sum")
+    dictionary={}
+    for i in range(len(channels)):
+        rolled= np.roll( epoch_sum[:, i], 1 )
+        rolled[0]=0.
+        diff= epoch_sum[:, i]-rolled
+        dictionary[channels[i]]= np.trapz(abs(diff))
 
     return dictionary
 
@@ -103,6 +129,17 @@ def Grad_ROC_with_multivar_grad(grads, epoch, X, x_shape=1, scaling=False):
 
 
     return dictionary
+
+def Grad_STD_with_grad(grads, epoch, X, x_shape=1):
+        channels=np.arange(X.shape[x_shape])
+        grad_all= np.array(grads).reshape(epoch, -1,X.shape[x_shape])
+
+        epoch_std= return_epoch_stat(grad_all, stat="std")
+        dictionary={}
+        for i, j in zip(range(len(channels)), channels):
+            dictionary[j]=np.trapz(epoch_std[:, i])# AuC
+
+        return dictionary
 
 def Grad_STD_with_multivar_grad(grads, epoch, X, x_shape=1,scaling=False):
 
@@ -414,7 +451,25 @@ class EEGNet_IE_EEG_Wrapper(EEGNet_Wrapper):
 
         self.IE_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True, device=device)
         self.IE_weights= torch.nn.Parameter(torch.nn.init.ones_(self.IE_weights))
+        self.IE_grad=[]
 
+    def return_IE_gradient(self):
+        return self.IE_weights.grad
+
+    def return_IE_grad(self):
+        return self.IE_grad
+    
+    def store_IE_gradient(self):
+        if self.return_IE_gradient()!=None:
+            self.IE_grad.append( self.return_IE_gradient().detach().cpu().numpy()  )
+
+    def IE_grad_setting(self, boolean):
+        self.IE_weights.requires_grad_(boolean)
+        self.IE_weights.grad= None
+
+    def set_IE_weights(self, ie_w):
+        self.IE_weights= torch.nn.Parameter(ie_w)
+        
     def return_IE_weights(self):
 
         return self.IE_weights.detach().cpu().numpy()
@@ -436,7 +491,26 @@ class EEGNet_IE_TS_Wrapper(EEGNet_Wrapper):
 
         self.IE_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True, device=device)
         self.IE_weights= torch.nn.Parameter(torch.nn.init.ones_(self.IE_weights))
+        
+        self.IE_grad=[]
 
+    def return_IE_gradient(self):
+        return self.IE_weights.grad
+        
+    def return_IE_grad(self):
+        return self.IE_grad
+    
+    def store_IE_gradient(self):
+        if self.return_IE_gradient()!=None:
+            self.IE_grad.append( self.return_IE_gradient().detach().cpu().numpy()  )
+
+    def IE_grad_setting(self, boolean):
+        self.IE_weights.requires_grad_(boolean)
+        self.IE_weights.grad= None
+        
+    def set_IE_weights(self, ie_w):
+        self.IE_weights= torch.nn.Parameter(ie_w)
+        
     def return_IE_weights(self):
 
         return self.IE_weights.detach().cpu().numpy()
