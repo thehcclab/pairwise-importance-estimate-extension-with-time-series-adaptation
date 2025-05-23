@@ -396,47 +396,6 @@ class EEGNet_Wrapper(torch.nn.Module):
 
             self.epoch += 1
             
-class EEGNet_IE_HP_Wrapper(EEGNet_Wrapper):
-    """Simultaneous method"""
-    def __init__(self, device:torch.device, eegnet:torcheeg.models.EEGNet, input_dim:List[int]):
-        assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
-        super().__init__(device, eegnet)
-
-        assert len(input_dim)==2, "Expecting a list with length 2"
-        for i in input_dim:
-            assert isinstance(i, int), "Expected i to be an int"
-
-        self.IE_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True, device=device)
-        self.IE_weights= torch.nn.Parameter(torch.nn.init.ones_(self.IE_weights))
-        self.IE_grad= []
-
-    def set_IE_weights(self, ie_w):
-        self.IE_weights= torch.nn.Parameter(ie_w)
-
-    def return_IE_weights(self):
-
-        return self.IE_weights.detach().cpu().numpy()
-    
-    def return_IE_gradient(self):
-        return self.IE_weights.grad
-
-    def return_IE_grad(self):
-        return self.IE_grad
-    
-    def store_IE_gradient(self):
-        if self.return_IE_gradient()!=None:
-            self.IE_grad.append( self.return_IE_gradient().detach().cpu().numpy()  )
-
-    def IE_grad_setting(self, boolean):
-        self.IE_weights.requires_grad_(boolean)
-        self.IE_weights.grad= None
-
-    def forward(self, x):
-#         print("IE weights", self.return_layer_weights())
-        new_input= x * self.IE_weights
-
-        return self.eegnet(new_input)
 
 class LSTMEncoder_EEGNet_Wrapper(EEGNet_Wrapper):
     def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet, input_dim:int):
@@ -494,13 +453,82 @@ class LSTM_EEGNet_Wrapper(EEGNet_Wrapper):
 #         print("lstm output swapped", lstm_output.shape)
         
         return self.eegnet(lstm_output.unsqueeze(1))
+    
+class LSTM_nonlinear_func(torch.nn.Module):
+    def __init__(self,hidden_unit:int):
         
+        assert isinstance(hidden_unit, int), "Expected hidden_unit to be an int"
+        super().__init__()
+        
+        self.lstm= torch.nn.LSTM(hidden_unit, hidden_unit, batch_first=True)
+        self.sigmoid= torch.nn.Sigmoid()
+        self.dropout= torch.nn.Dropout(0.2)
+        
+    def forward(self,x):
+#         print("x",x.shape)
+        x= x.squeeze(1)
+        x= torch.permute(x, (0,2,1))
+#         print("input", x.shape)
+        
+        lstm_output, lstm_states= self.lstm(x)
+        lstm_output= self.sigmoid(lstm_output)
+#         print("lstm output", lstm_output.shape)
+        
+
+        lstm_output= self.dropout(lstm_output)
+        lstm_output=torch.permute(lstm_output, (0,2,1))
+#         print("lstm output swapped", lstm_output.shape)
+        
+        return lstm_output
+
+class EEGNet_IE_HP_Wrapper(EEGNet_Wrapper):
+    """Simultaneous method"""
+    def __init__(self, device:torch.device, eegnet:torch.nn.Module, input_dim:List[int]):
+        assert isinstance(device, torch.device), "device is not a torch.device"
+        assert isinstance(eegnet, torch.nn.Module), "eegnet is not a torch.nn.Module"
+        super().__init__(device, eegnet)
+
+        assert len(input_dim)==2, "Expecting a list with length 2"
+        for i in input_dim:
+            assert isinstance(i, int), "Expected i to be an int"
+
+        self.IE_weights= torch.empty(input_dim, dtype=torch.float32, requires_grad=True, device=device)
+        self.IE_weights= torch.nn.Parameter(torch.nn.init.ones_(self.IE_weights))
+        self.IE_grad= []
+
+    def set_IE_weights(self, ie_w):
+        self.IE_weights= torch.nn.Parameter(ie_w)
+
+    def return_IE_weights(self):
+
+        return self.IE_weights.detach().cpu().numpy()
+    
+    def return_IE_gradient(self):
+        return self.IE_weights.grad
+
+    def return_IE_grad(self):
+        return self.IE_grad
+    
+    def store_IE_gradient(self):
+        if self.return_IE_gradient()!=None:
+            self.IE_grad.append( self.return_IE_gradient().detach().cpu().numpy()  )
+
+    def IE_grad_setting(self, boolean):
+        self.IE_weights.requires_grad_(boolean)
+        self.IE_weights.grad= None
+
+    def forward(self, x):
+#         print("IE weights", self.return_layer_weights())
+        new_input= x * self.IE_weights
+
+        return self.eegnet(new_input)
+
     
 class EEGNet_IE_EEG_Wrapper(EEGNet_Wrapper):
     """Simultaneous method"""
-    def __init__(self, device:torch.device, eegnet:torcheeg.models.EEGNet, input_dim:int):
+    def __init__(self, device:torch.device, eegnet:torch.nn.Module, input_dim:int):
         assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        assert isinstance(eegnet, torch.nn.Module), "eegnet is not a torch.nn.Module"
         super().__init__(device, eegnet)
 
         assert isinstance(input_dim, int), "input_dim is not an int"
@@ -538,9 +566,9 @@ class EEGNet_IE_EEG_Wrapper(EEGNet_Wrapper):
     
 class EEGNet_IE_TS_Wrapper(EEGNet_Wrapper):
     """Simultaneous method"""
-    def __init__(self, device:torch.device, eegnet:torcheeg.models.EEGNet, input_dim:int):
+    def __init__(self, device:torch.device, eegnet:torch.nn.Module, input_dim:int):
         assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        assert isinstance(eegnet, torch.nn.module), "eegnet is not a torch.nn.Module"
         super().__init__(device, eegnet)
 
         assert isinstance(input_dim, int), "input_dim is not an int"
@@ -578,11 +606,11 @@ class EEGNet_IE_TS_Wrapper(EEGNet_Wrapper):
         return self.eegnet(new_input)
     
 class EEGNet_DF_HP_Wrapper(EEGNet_Wrapper):
-    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet,
+    def __init__(self, device: torch.device, eegnet: torch.nn.Module,
                  input_dim: List[int], l1_lambda=1.0, l2_lambda=0.1):
 
         assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        assert isinstance(eegnet, torch.nn.Module), "eegnet is not a torch.nn.Module"
         super().__init__(device, eegnet)
         
         assert isinstance(l1_lambda, float), "Expecting float for l1_lambda"
@@ -613,11 +641,11 @@ class EEGNet_DF_HP_Wrapper(EEGNet_Wrapper):
         return output
 
 class EEGNet_DF_EEG_Wrapper(EEGNet_Wrapper):
-    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet,
+    def __init__(self, device: torch.device, eegnet: torch.nn.Module,
                  input_dim: int, l1_lambda=1.0, l2_lambda=0.1):
 
         assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        assert isinstance(eegnet, torch.nn.Module), "eegnet is not a torch.nn.Module"
         super().__init__(device, eegnet)
         
         assert isinstance(l1_lambda, float), "Expecting float for l1_lambda"
@@ -644,11 +672,11 @@ class EEGNet_DF_EEG_Wrapper(EEGNet_Wrapper):
         return self.eegnet(new_input)
 
 class EEGNet_DF_TS_Wrapper(EEGNet_Wrapper):
-    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet,
+    def __init__(self, device: torch.device, eegnet: torch.nn.Module,
                  input_dim: int, l1_lambda=1.0, l2_lambda=0.1):
 
         assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "eegnet is not a torcheeg.models.EEGNet"
+        assert isinstance(eegnet, torch.nn.Module), "eegnet is not a torch.nn.Module"
         super().__init__(device, eegnet)
         
         assert isinstance(l1_lambda, float), "Expecting float for l1_lambda"
@@ -675,10 +703,10 @@ class EEGNet_DF_TS_Wrapper(EEGNet_Wrapper):
         return self.eegnet(new_input)
     
 class EEGNet_NeuralFS_HP_Wrapper(EEGNet_Wrapper):
-    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet, input_dim: List[int], nonlinear_func: torch.nn.Module):
+    def __init__(self, device: torch.device, eegnet: torch.nn.Module, input_dim: List[int], nonlinear_func: torch.nn.Module):
         
         assert isinstance(device, torch.device), "device is nto a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "device is nto a torch.device"
+        assert isinstance(eegnet, torch.nn.Module), "device is nto a torch.device"
         super().__init__(device, eegnet)
 
         assert isinstance(nonlinear_func, torch.nn.Module), "Expecting torch.nn.Module for the model parameter"
@@ -723,10 +751,10 @@ class EEGNet_NeuralFS_HP_Wrapper(EEGNet_Wrapper):
         return output
     
 class EEGNet_NeuralFS_EEG_Wrapper(EEGNet_Wrapper):
-    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet, input_dim: List[int], nonlinear_func: torch.nn.Module):
+    def __init__(self, device: torch.device, eegnet: torch.nn.Module, input_dim: List[int], nonlinear_func: torch.nn.Module):
         
         assert isinstance(device, torch.device), "device is nto a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "device is nto a torch.device"
+        assert isinstance(eegnet, torch.nn.Module), "device is nto a torch.device"
         super().__init__(device, eegnet)
 
         assert isinstance(nonlinear_func, torch.nn.Module), "Expecting torch.nn.Module for the model parameter"
@@ -768,10 +796,10 @@ class EEGNet_NeuralFS_EEG_Wrapper(EEGNet_Wrapper):
         return output
     
 class EEGNet_NeuralFS_TS_Wrapper(EEGNet_Wrapper):
-    def __init__(self, device: torch.device, eegnet: torcheeg.models.EEGNet, input_dim: List[int], nonlinear_func: torch.nn.Module):
+    def __init__(self, device: torch.device, eegnet: torch.nn.Module, input_dim: List[int], nonlinear_func: torch.nn.Module):
         
         assert isinstance(device, torch.device), "device is nto a torch.device"
-        assert isinstance(eegnet, torcheeg.models.EEGNet), "device is nto a torch.device"
+        assert isinstance(eegnet, torch.nn.Module), "device is nto a torch.device"
         super().__init__(device, eegnet)
 
         assert isinstance(nonlinear_func, torch.nn.Module), "Expecting torch.nn.Module for the model parameter"
