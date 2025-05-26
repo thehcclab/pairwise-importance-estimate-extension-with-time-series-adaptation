@@ -568,7 +568,7 @@ class EEGNet_IE_TS_Wrapper(EEGNet_Wrapper):
     """Simultaneous method"""
     def __init__(self, device:torch.device, eegnet:torch.nn.Module, input_dim:int):
         assert isinstance(device, torch.device), "device is not a torch.device"
-        assert isinstance(eegnet, torch.nn.module), "eegnet is not a torch.nn.Module"
+        assert isinstance(eegnet, torch.nn.Module), "eegnet is not a torch.nn.Module"
         super().__init__(device, eegnet)
 
         assert isinstance(input_dim, int), "input_dim is not an int"
